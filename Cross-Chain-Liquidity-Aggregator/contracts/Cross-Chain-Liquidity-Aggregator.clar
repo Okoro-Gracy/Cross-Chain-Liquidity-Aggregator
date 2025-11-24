@@ -413,3 +413,55 @@
     proposal-type: uint
   }
 )
+
+(define-map user-votes
+  { proposal-id: uint, voter: principal }
+  {
+    vote: bool,
+    voting-power: uint
+  }
+)
+
+;; PRICE ORACLE SYSTEM
+(define-public (add-price-oracle 
+  (token principal) 
+  (initial-price uint) 
+  (decimals uint) 
+  (oracle-address principal)
+)
+  (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+    (asserts! (is-token-whitelisted token) ERR-INVALID-TOKEN)
+    
+    (map-set price-oracles
+      { token: token }
+      {
+        price: initial-price,
+        decimals: decimals,
+        last-update-time: stacks-block-height,
+        oracle-address: oracle-address,
+        is-active: true
+      }
+    )
+    (ok token)
+  )
+)
+
+(define-public (update-token-price (token principal) (new-price uint))
+  (let
+    (
+      (oracle (unwrap! (map-get? price-oracles { token: token }) ERR-ORACLE-NOT-FOUND))
+    )
+    (asserts! (is-eq tx-sender (get oracle-address oracle)) ERR-NOT-AUTHORIZED)
+    (asserts! (get is-active oracle) ERR-ORACLE-NOT-FOUND)
+    
+    (map-set price-oracles
+      { token: token }
+      (merge oracle { 
+        price: new-price,
+        last-update-time: stacks-block-height
+      })
+    )
+    (ok new-price)
+  )
+)
